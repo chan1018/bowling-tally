@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ボウリング大会 集計ボード</title>
+<meta name="theme-color" content="#2F6F6A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ボウリング">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="icon" href="./icon-192.png">
+<style>
+/* ===== tokens — DESIGN.md (kimuz-web v1). accent のみ本プロジェクト固有（ボウリングの赤） ===== */
+:root{
+  --surface:#FAFAF8; --surface-2:#F1F0EC; --on-surface:#1A1A1A; --muted:#6B6B6B;
+  --primary:#2F6F6A; --accent:#B71E28; --border:#E5E5E0;
+  --success:#2E7D52; --warning:#B5860B; --error:#B3261E;
+  --t0:#2F6F6A; --t1:#3B5F8A; --t2:#B5860B; --t3:#2E7D52;
+  --r-sm:.375rem; --r-md:.75rem; --r-lg:1rem; --r-full:9999px;
+  --hairline:1px solid var(--border);
+  --shadow-card:0 1px 4px rgba(40,60,60,.12);
+  --pad:16px;
+  --font:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;
+  --padh:0px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--surface); color:var(--on-surface);
+  font-family:var(--font); font-size:16px; line-height:1.7;
+  -webkit-text-size-adjust:100%;
+  padding-bottom:calc(var(--padh) + 24px);
+  font-variant-numeric:tabular-nums;
+}
+.wrap{max-width:560px;margin:0 auto;padding:0 var(--pad)}
+h2{font-size:22px;font-weight:700;line-height:1.4;margin:0 0 8px}
+h3{font-size:17px;font-weight:700;margin:0 0 8px}
+p{margin:0 0 12px}
+.cap{font-size:14px;line-height:1.6;color:var(--muted);margin:0 0 12px}
+.cap b{color:var(--on-surface)}
+.hidden{display:none!important}
+
+/* ===== top bar: いま何をすればいいか ===== */
+.topbar{position:sticky;top:0;z-index:30;background:var(--surface);border-bottom:var(--hairline)}
+.steps{display:flex;gap:6px;padding:10px 0 0}
+.stepbtn{
+  flex:1;min-height:40px;border:var(--hairline);background:var(--surface-2);
+  color:var(--muted);font-family:var(--font);font-size:14px;font-weight:700;
+  border-radius:var(--r-md);padding:6px 2px;cursor:pointer;line-height:1.2;
+}
+.stepbtn[data-state="done"]{background:#E7EFEE;border-color:#BFD6D4;color:var(--primary)}
+.stepbtn[data-state="now"]{background:var(--primary);border-color:var(--primary);color:#fff}
+.todo{
+  display:flex;align-items:center;gap:10px;
+  font-size:17px;font-weight:700;line-height:1.35;margin:0;padding:10px 0 12px;
+}
+.todo .dot{width:10px;height:10px;border-radius:var(--r-full);background:var(--accent);flex:none}
+.todo .rest{margin-left:auto;font-size:15px;font-weight:700;color:var(--accent);white-space:nowrap}
+.todo.ok .dot{background:var(--success)}
+.todo.ok .rest{color:var(--success)}
+
+/* ===== cards ===== */
+.card{
+  background:var(--surface-2);border:var(--hairline);border-radius:var(--r-lg);
+  padding:16px;margin:16px 0;
+}
+.card.plain{background:var(--surface)}
+
+/* ===== buttons ===== */
+.btn{
+  display:block;width:100%;min-height:52px;font-family:var(--font);font-size:17px;font-weight:700;
+  background:var(--primary);color:#fff;border:0;border-radius:var(--r-md);
+  padding:12px 16px;margin-top:12px;cursor:pointer;box-shadow:var(--shadow-card);
+}
+.btn:disabled{background:#C9CCCB;color:#fff;box-shadow:none;cursor:default}
+.btn.sec{background:var(--surface);color:var(--primary);border:var(--hairline);box-shadow:none}
+.btn.warnbtn{background:var(--accent)}
+.btn.small{min-height:44px;font-size:15px}
+
+/* ===== roster rows ===== */
+.rows{display:flex;flex-direction:column;gap:8px;margin:12px 0 0}
+.row{
+  display:flex;align-items:center;gap:10px;min-height:52px;
+  background:var(--surface);border:var(--hairline);border-radius:var(--r-md);padding:6px 10px;
+}
+.row.off{opacity:.45}
+.row.active{border:2px solid var(--accent);background:#FDF4F4;padding:5px 9px}
+.no{
+  font-size:17px;font-weight:700;background:var(--primary);color:#fff;
+  min-width:40px;height:40px;display:grid;place-items:center;border-radius:var(--r-sm);flex:none;
+}
+.row.off .no{background:var(--muted)}
+.row.active .no{background:var(--accent)}
+.nm{flex:1;min-width:0;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm.ph{color:var(--muted)}
+.row input[type=text]{
+  flex:1;min-width:0;font-family:var(--font);font-size:16px;min-height:44px;
+  border:var(--hairline);border-radius:var(--r-md);padding:8px 12px;background:var(--surface);color:var(--on-surface);
+}
+.row input[type=text]:focus{outline:2px solid var(--primary);outline-offset:-2px}
+.sc{font-size:30px;font-weight:700;line-height:1;min-width:74px;text-align:right;flex:none}
+.sc.empty{color:#C9CCCB}
+.tog{
+  min-height:40px;padding:0 12px;font-family:var(--font);font-size:14px;font-weight:700;
+  border:var(--hairline);border-radius:var(--r-md);background:var(--surface);color:var(--muted);flex:none;cursor:pointer;
+}
+.row.off .tog{background:var(--surface-2);color:var(--error);border-color:#E7C9C7}
+
+/* ===== teams ===== */
+.team{border:var(--hairline);border-radius:var(--r-md);overflow:hidden;margin-bottom:10px;background:var(--surface)}
+.team .hd{display:flex;align-items:center;gap:10px;padding:8px 12px;color:#fff;min-height:44px}
+.team .hd .lt{font-size:20px;font-weight:700}
+.team .hd .mt{margin-left:auto;font-size:15px;font-weight:700}
+.tc0{background:var(--t0)}.tc1{background:var(--t1)}.tc2{background:var(--t2)}.tc3{background:var(--t3)}
+.mem{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px}
+.mem span{
+  font-size:15px;background:var(--surface-2);border:var(--hairline);
+  border-radius:var(--r-full);padding:6px 12px;line-height:1.2;
+}
+.mem span b{font-weight:700}
+
+/* ===== tables ===== */
+table{width:100%;border-collapse:collapse;font-size:16px;margin:8px 0 0}
+th,td{padding:10px 6px;border-bottom:var(--hairline);text-align:left;vertical-align:middle}
+th{font-size:14px;color:var(--muted);font-weight:700;border-bottom:2px solid var(--on-surface)}
+td.n,th.n{text-align:right;font-weight:700}
+tr.win td{background:#EAF3EE}
+tr.last td{background:#FBEDEC}
+.badge{display:inline-block;font-size:12px;font-weight:700;border-radius:var(--r-full);padding:2px 8px;margin-left:6px;
+  background:var(--warning);color:#fff;vertical-align:middle}
+
+/* ===== verdict / notice ===== */
+.verdict{border:var(--hairline);border-left:5px solid var(--primary);border-radius:var(--r-md);
+  background:var(--surface);padding:12px 14px;margin:10px 0 0}
+.verdict.bad{border-left-color:var(--accent)}
+.verdict .lbl{display:block;font-size:14px;color:var(--muted);font-weight:700;margin-bottom:2px}
+.verdict .val{font-size:18px;font-weight:700;line-height:1.45}
+.notice{border-radius:var(--r-md);padding:12px 14px;margin:12px 0 0;font-size:15px;line-height:1.65}
+.notice.warn{background:#FBF3DF;border:1px solid #E4CE8E}
+.notice.err{background:#FBEDEC;border:1px solid #E7C9C7}
+.notice.info{background:#E9F1F0;border:1px solid #C4DAD8}
+.notice.good{background:#EAF3EE;border:1px solid #C2DECE}
+.notice b{font-weight:700}
+
+/* ===== prize handout ===== */
+.hand{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.give{display:flex;align-items:flex-start;gap:12px;background:var(--surface);border:var(--hairline);
+  border-radius:var(--r-md);padding:10px 12px;cursor:pointer}
+.give.done{background:#EAF3EE;border-color:#C2DECE}
+.give .ck{width:30px;height:30px;border:2px solid var(--muted);border-radius:var(--r-sm);flex:none;
+  display:grid;place-items:center;font-size:20px;font-weight:700;color:transparent;margin-top:2px}
+.give.done .ck{background:var(--success);border-color:var(--success);color:#fff}
+.give .who{font-size:17px;font-weight:700;line-height:1.3}
+.give .what{font-size:15px;color:var(--muted);line-height:1.5}
+.give .what em{font-style:normal;color:var(--on-surface);font-weight:700}
+
+/* ===== numpad ===== */
+.pad{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--surface-2);
+  border-top:var(--hairline);box-shadow:0 -2px 10px rgba(40,60,60,.10);
+  padding:8px var(--pad) calc(8px + env(safe-area-inset-bottom,0px));
+}
+.padin{max-width:560px;margin:0 auto}
+.padhd{display:flex;align-items:center;gap:10px;min-height:36px;font-size:16px;font-weight:700}
+.padhd .cur{font-size:26px;font-weight:700;margin-left:auto}
+.keys{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+.key{
+  min-height:54px;font-family:var(--font);font-size:24px;font-weight:700;
+  background:var(--surface);color:var(--on-surface);border:var(--hairline);
+  border-radius:var(--r-md);cursor:pointer;box-shadow:var(--shadow-card);
+}
+.key:active{background:var(--surface-2)}
+.key.fn{font-size:17px;color:var(--muted);background:var(--surface-2);box-shadow:none}
+.key.go{background:var(--primary);color:#fff;font-size:18px;grid-row:span 2;border-color:var(--primary)}
+.key.zero{grid-column:span 3}
+
+/* ===== footer status ===== */
+.status{max-width:560px;margin:20px auto 0;padding:0 var(--pad);font-size:14px;color:var(--muted)}
+.status .line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;
+  border-radius:var(--r-full);padding:4px 10px;border:var(--hairline);background:var(--surface-2)}
+.pill.good{background:#EAF3EE;border-color:#C2DECE;color:var(--success)}
+.pill.warn{background:#FBF3DF;border-color:#E4CE8E;color:#8A6708}
+textarea{width:100%;min-height:120px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;
+  border:var(--hairline);border-radius:var(--r-md);padding:10px;background:var(--surface);color:var(--on-surface)}
+details{margin-top:12px}
+summary{cursor:pointer;font-size:15px;font-weight:700;color:var(--primary);min-height:44px;display:flex;align-items:center}
+.sel{display:flex;gap:8px;align-items:center;margin-top:10px}
+.sel select{flex:1;min-width:0;font-family:var(--font);font-size:16px;min-height:44px;
+  border:var(--hairline);border-radius:var(--r-md);background:var(--surface);color:var(--on-surface);padding:8px}
+.sel button{min-height:44px;padding:0 14px;font-family:var(--font);font-size:15px;font-weight:700;
+  border:var(--hairline);border-radius:var(--r-md);background:var(--surface);color:var(--primary);cursor:pointer;flex:none}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <nav class="steps" id="steps"></nav>
+    <p class="todo" id="todo"><span class="dot"></span><span id="todotext">読み込み中</span></p>
+  </div>
+</div>
+
+<main class="wrap" id="app"></main>
+
+<div class="status" id="status"></div>
+
+<div class="pad hidden" id="pad">
+  <div class="padin">
+    <div class="padhd">
+      <span id="padwho">—</span>
+      <span class="cur" id="padval">—</span>
+    </div>
+    <div class="keys">
+      <button class="key" data-k="7">7</button>
+      <button class="key" data-k="8">8</button>
+      <button class="key" data-k="9">9</button>
+      <button class="key fn" data-k="bs">⌫</button>
+      <button class="key" data-k="4">4</button>
+      <button class="key" data-k="5">5</button>
+      <button class="key" data-k="6">6</button>
+      <button class="key fn" data-k="cl">消す</button>
+      <button class="key" data-k="1">1</button>
+      <button class="key" data-k="2">2</button>
+      <button class="key" data-k="3">3</button>
+      <button class="key go" data-k="next">次へ</button>
+      <button class="key zero" data-k="0">0</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   ボウリング大会 集計ボード
+   用語は CONTEXT.md、設計判断は docs/adr/ を参照。
+   - 3G目のチームは 1G+2G で組む (ADR-0001。運営メモ §5 とは意図的に異なる)
+   - チーム分けは決定論、「再会」はハード制約 (ADR-0002)
+   ============================================================ */
+
+const N = 14;
+const K = 4;                                  /* チーム数は常に4 */
+const LABELS2 = ['A','B','C','D'];
+const LABELS3 = ['E','F','G','H'];
+const STEPS = [
+  {k:'setup', label:'準備'},
+  {k:'g1',    label:'1G'},
+  {k:'g2',    label:'2G'},
+  {k:'g3',    label:'3G'},
+  {k:'fin',   label:'表彰'}
+];
+const PRIZES = [
+  {code:'g2win',  when:'2ゲーム目 1位チーム',   item:'フェレロロシェ小箱'},
+  {code:'g2last', when:'2ゲーム目 最下位チーム', item:'トイレットペーパー12ロール（ドンマイ賞）'},
+  {code:'g3win',  when:'3ゲーム目 1位チーム',   item:'高級カップ麺＋レトルトカレー'},
+  {code:'g3last', when:'3ゲーム目 最下位チーム', item:'自作駄菓子袋（ドンマイ賞）'},
+  {code:'gr1',    when:'伸び賞 1位',           item:'QUOカード ¥1,800'},
+  {code:'gr2',    when:'伸び賞 2位',           item:'QUOカード ¥1,200'}
+];
+
+const KEY = 'bowling-tally-v2';
+
+function blank(){
+  return {
+    v:2, step:'setup',
+    names:Array(N).fill(''),
+    present:Array(N).fill(true),
+    g1:Array(N).fill(''), g2:Array(N).fill(''), g3:Array(N).fill(''),
+    t2:null, t3:null,
+    t3violations:0,
+    growthOpen:false,
+    given:{}
+  };
+}
+let S = blank();
+
+/* active な入力セル（画面内の状態。保存しない） */
+let active = -1, fresh = true, lastSaved = null;
+
+/* ---------- storage ---------- */
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(S)); lastSaved = new Date(); }
+  catch(e){ lastSaved = 'ERR'; }
+  drawStatus();
+}
+function load(){
+  try{
+    const v = localStorage.getItem(KEY);
+    if(v){ const o = JSON.parse(v); S = Object.assign(blank(), o); }
+  }catch(e){}
+}
+
+/* ---------- helpers ---------- */
+const pad2  = i => String(i+1).padStart(2,'0');
+const num   = v => { const x = parseInt(v,10); return isNaN(x) ? null : x; };
+const pkey  = (a,b) => a<b ? a+'-'+b : b+'-'+a;
+const esc   = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const el    = id => document.getElementById(id);
+const nameOf = i => (S.names[i] || '').trim();
+const who   = i => { const n = nameOf(i); return n ? pad2(i)+' '+n : pad2(i)+'番'; };
+
+function presentIdx(){ const a=[]; for(let i=0;i<N;i++) if(S.present[i]) a.push(i); return a; }
+function filled(field){ return presentIdx().filter(i => num(S[field][i]) !== null).length; }
+function allIn(field){ return presentIdx().length>0 && filled(field) === presentIdx().length; }
+
+function roster(field){
+  const out=[];
+  for(const i of presentIdx()){
+    const s=num(S[field][i]);
+    if(s===null) return null;
+    out.push({i, score:s});
+  }
+  return out;
+}
+function ranked(list){
+  const a=[...list].sort((x,y)=> y.score-x.score || x.i-y.i);
+  let r=0, prev=null;
+  a.forEach((p,idx)=>{ if(p.score!==prev){ r=idx+1; prev=p.score; } p.rank=r; });
+  return a;
+}
+function sizesFor(n,k){
+  const b=Math.floor(n/k), r=n%k;
+  return Array.from({length:k},(_,i)=> b+(i<r?1:0));
+}
+
+/* ---------- 決定論の疑似乱数 (ADR-0002) ---------- */
+function hashOf(list, salt){
+  let h = 2166136261 >>> 0;
+  h ^= salt; h = Math.imul(h, 16777619);
+  for(const p of list){
+    h ^= (p.i+1);     h = Math.imul(h, 16777619);
+    h ^= (p.score+7); h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+function mulberry32(a){
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* ---------- チーム分け ----------
+   コストは [再会の件数, チーム平均点の最大差] の辞書式比較。
+   再会はハード制約なので、平均差といくら引き換えても優先される。 */
+function violationsOf(teams, forbidden){
+  if(!forbidden || !forbidden.size) return 0;
+  let v=0;
+  for(const t of teams)
+    for(let i=0;i<t.length;i++)
+      for(let j=i+1;j<t.length;j++)
+        if(forbidden.has(pkey(t[i].i, t[j].i))) v++;
+  return v;
+}
+function spreadOf(teams){
+  let mn=Infinity, mx=-Infinity;
+  for(const t of teams){
+    if(!t.length) continue;
+    const a = t.reduce((s,p)=>s+p.score,0)/t.length;
+    if(a<mn) mn=a;
+    if(a>mx) mx=a;
+  }
+  return (mx===-Infinity) ? 0 : (mx-mn);
+}
+const better = (a,b) => a[0]!==b[0] ? a[0]<b[0] : a[1] < b[1]-1e-9;
+const costOf = (teams,f) => [violationsOf(teams,f), spreadOf(teams)];
+
+function snakeFill(list, sizes){
+  const teams = sizes.map(()=>[]);
+  let t=0, d=1;
+  const step = () => { t+=d; if(t>=sizes.length){ t=sizes.length-1; d=-1; } else if(t<0){ t=0; d=1; } };
+  for(const p of list){
+    let guard=0;
+    while(teams[t].length >= sizes[t] && guard++ < 200) step();
+    teams[t].push(p);
+    step();
+  }
+  return teams;
+}
+function shuffleFill(list, sizes, rnd){
+  const a=[...list];
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); const tmp=a[i]; a[i]=a[j]; a[j]=tmp; }
+  const teams = sizes.map(()=>[]);
+  let k=0;
+  for(const p of a){
+    while(teams[k].length >= sizes[k]) k=(k+1)%sizes.length;
+    teams[k].push(p);
+    k=(k+1)%sizes.length;
+  }
+  return teams;
+}
+function hillClimb(teams, forbidden){
+  let go = true, guard = 0;
+  while(go && guard++ < 400){
+    go = false;
+    const cur = costOf(teams, forbidden);
+    outer:
+    for(let a=0;a<teams.length;a++)
+      for(let b=a+1;b<teams.length;b++)
+        for(let x=0;x<teams[a].length;x++)
+          for(let y=0;y<teams[b].length;y++){
+            const tmp = teams[a][x]; teams[a][x] = teams[b][y]; teams[b][y] = tmp;
+            if(better(costOf(teams, forbidden), cur)){ go = true; break outer; }
+            const bk = teams[a][x]; teams[a][x] = teams[b][y]; teams[b][y] = bk;
+          }
+  }
+}
+function assign(list, forbidden, salt){
+  const sizes = sizesFor(list.length, K);
+  const rnd = mulberry32(hashOf(list, salt));
+  let best=null, bestCost=[Infinity,Infinity];
+  for(let r=0;r<240;r++){
+    const teams = (r===0) ? snakeFill(list, sizes) : shuffleFill(list, sizes, rnd);
+    hillClimb(teams, forbidden);
+    const c = costOf(teams, forbidden);
+    if(better(c, bestCost)){ bestCost = c; best = teams.map(t => t.map(p => p.i)); }
+  }
+  return {teams:best, violations:bestCost[0], spread:bestCost[1]};
+}
+function pairsIn(teams){
+  const s = new Set();
+  if(!teams) return s;
+  for(const t of teams)
+    for(let i=0;i<t.length;i++)
+      for(let j=i+1;j<t.length;j++)
+        s.add(pkey(t[i], t[j]));
+  return s;
+}
+function reunionsIn(teams, forbidden){
+  const out=[];
+  if(!teams || !forbidden) return out;
+  for(const t of teams)
+    for(let i=0;i<t.length;i++)
+      for(let j=i+1;j<t.length;j++)
+        if(forbidden.has(pkey(t[i], t[j]))) out.push([t[i], t[j]]);
+  return out;
+}
+
+/* ---------- 順位 ---------- */
+function standings(teams, labels, field){
+  return teams.map((t,idx)=>{
+    const vals = t.map(i => num(S[field][i])).filter(v => v!==null);
+    const sum  = vals.reduce((a,b)=>a+b,0);
+    return {label:labels[idx], idx, members:t, n:t.length, sum, avg: vals.length ? sum/vals.length : 0};
+  }).sort((a,b)=> b.avg - a.avg);
+}
+function growth(){
+  const rows=[];
+  for(const i of presentIdx()){
+    const a=num(S.g2[i]), b=num(S.g3[i]);
+    if(a===null || b===null || a<=0) continue;
+    rows.push({i, g2:a, g3:b, diff:b-a, rate:(b-a)/a*100});
+  }
+  rows.sort((x,y)=> y.rate - x.rate || y.diff - x.diff || x.i - y.i);
+  return rows;
+}
+function growthWinners(){
+  const all = growth();
+  const up  = all.filter(r => r.diff > 0);
+  return {all, up};
+}
+
+/* ============================================================
+   描画
+   ============================================================ */
+function todoText(){
+  const p = presentIdx().length;
+  if(S.step==='setup') return {t:'参加者の呼び名を入れて、欠席者を外してください', r:p+'人', ok:true};
+  if(S.step==='g1'){
+    if(!allIn('g1')) return {t:'1ゲーム目の点数を入れてください', r:'残り '+(p-filled('g1'))+'人', ok:false};
+    if(!S.t2)        return {t:'2ゲーム目のチームを決めてください', r:'入力完了', ok:true};
+    return {t:'チームを発表して2ゲーム目へ', r:'完了', ok:true};
+  }
+  if(S.step==='g2'){
+    if(!allIn('g2')) return {t:'2ゲーム目の点数を入れてください', r:'残り '+(p-filled('g2'))+'人', ok:false};
+    if(!S.t3)        return {t:'結果を発表し、3ゲーム目のチームを決めてください', r:'入力完了', ok:true};
+    return {t:'伸び賞を発表してチームを伝え、3ゲーム目へ', r:'完了', ok:true};
+  }
+  if(S.step==='g3'){
+    if(!allIn('g3')) return {t:'3ゲーム目の点数を入れてください', r:'残り '+(p-filled('g3'))+'人', ok:false};
+    return {t:'表彰へ進んでください', r:'入力完了', ok:true};
+  }
+  return {t:'景品を渡してください', r:handoutProgress(), ok:true};
+}
+function drawTop(){
+  const cur = STEPS.findIndex(s => s.k === S.step);
+  el('steps').innerHTML = STEPS.map((s,i)=>{
+    const st = i===cur ? 'now' : (i<cur ? 'done' : 'todo');
+    return '<button class="stepbtn" data-state="'+st+'" data-go="'+s.k+'">'+s.label+'</button>';
+  }).join('');
+  const t = todoText();
+  el('todo').className = 'todo' + (t.ok ? ' ok' : '');
+  el('todotext').textContent = t.t;
+  let rest = el('todo').querySelector('.rest');
+  if(!rest){ rest = document.createElement('span'); rest.className='rest'; el('todo').appendChild(rest); }
+  rest.textContent = t.r;
+}
+
+function scoreRows(field){
+  return '<div class="rows">' + Array.from({length:N},(_,i)=>{
+    if(!S.present[i]) return '<div class="row off"><span class="no">'+pad2(i)+'</span><span class="nm ph">欠席</span></div>';
+    const v = S[field][i];
+    return '<div class="row'+(active===i?' active':'')+'" data-cell="'+i+'">'+
+      '<span class="no">'+pad2(i)+'</span>'+
+      '<span class="nm'+(nameOf(i)?'':' ph')+'">'+esc(nameOf(i) || '（名前なし）')+'</span>'+
+      '<span class="sc'+(v===''?' empty':'')+'">'+(v===''?'—':esc(v))+'</span></div>';
+  }).join('') + '</div>';
+}
+function teamBlocks(teams, labels, field){
+  if(!teams) return '';
+  return teams.map((t,idx)=>{
+    const vals = field ? t.map(i=>num(S[field][i])).filter(v=>v!==null) : [];
+    const meta = vals.length ? t.length+'人 ・ 平均 '+(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : t.length+'人';
+    return '<div class="team"><div class="hd tc'+idx+'"><span class="lt">'+labels[idx]+'</span>'+
+      '<span class="mt">'+meta+'</span></div><div class="mem">'+
+      t.map(i=>'<span><b>'+pad2(i)+'</b>'+(nameOf(i)?' '+esc(nameOf(i)):'')+'</span>').join('')+
+      '</div></div>';
+  }).join('');
+}
+function teamQuality(teams, field, forbidden){
+  if(!teams) return '';
+  const avgs = teams.map(t=>{
+    const v=t.map(i=>num(S[field][i])).filter(x=>x!==null);
+    return v.length ? v.reduce((a,b)=>a+b,0)/v.length : 0;
+  });
+  const sp = Math.max.apply(null,avgs) - Math.min.apply(null,avgs);
+  const small = teams.filter(t=>t.length<3).length;
+  let h = '<div class="notice '+(sp<=15?'good':'warn')+'">チーム平均点の最大差 <b>'+sp.toFixed(1)+'点</b>。'+
+    (sp<=15 ? '運営メモの目安（15点以内）に収まっています。'
+            : '15点を超えています。下の「手で入れ替える」で近い点数の2人を入れ替えてください。')+'</div>';
+  if(forbidden && forbidden.size){
+    const rs = reunionsIn(teams, forbidden);
+    if(rs.length) h += '<div class="notice err"><b>再会が'+rs.length+'組あります。</b>'+
+      '人数が変わったため、全員を別チームにする分割が存在しませんでした。<br>'+
+      rs.map(p=>esc(who(p[0]))+' と '+esc(who(p[1]))).join('<br>')+'</div>';
+  }
+  if(small) h += '<div class="notice warn">3人未満のチームが'+small+'個あります。平均点の判定が1人の当たり外れに強く振られます。'+
+    '欠席が多いなら、口頭でチーム数を減らす判断をしてください。</div>';
+  return h;
+}
+function swapUI(which){
+  const opts = presentIdx().map(i=>'<option value="'+i+'">'+esc(who(i))+'</option>').join('');
+  return '<details><summary>手で入れ替える（平均差が大きいとき）</summary>'+
+    '<div class="sel"><select id="sw1">'+opts+'</select><select id="sw2">'+opts+'</select>'+
+    '<button data-swap="'+which+'">交換</button></div>'+
+    '<p class="cap" style="margin-top:8px">近い点数の2人を入れ替えると差が縮みます。'+
+    '手で入れ替えた場合、「再会させない」条件は自動では守られません。</p></details>';
+}
+function standTable(st){
+  return '<table><thead><tr><th>チーム</th><th>メンバー</th><th class="n">平均</th></tr></thead><tbody>'+
+    st.map((r,i)=>'<tr class="'+(i===0?'win':(i===st.length-1?'last':''))+'">'+
+      '<td><b style="font-size:19px">'+r.label+'</b></td>'+
+      '<td style="font-size:14px;line-height:1.5">'+r.members.map(m=>esc(who(m))).join('<br>')+'</td>'+
+      '<td class="n" style="font-size:22px">'+r.avg.toFixed(1)+'</td></tr>').join('')+
+    '</tbody></table>';
+}
+function indivTable(field){
+  const list = roster(field);
+  if(!list) return '';
+  const rk = ranked(list);
+  const counts = {};
+  rk.forEach(p => counts[p.score] = (counts[p.score]||0)+1);
+  return '<table><thead><tr><th>順位</th><th>参加者</th><th class="n">点数</th></tr></thead><tbody>'+
+    rk.map(p=>'<tr><td style="font-weight:700">'+p.rank+'</td><td>'+esc(who(p.i))+
+      (counts[p.score]>1 ? '<span class="badge">同点→じゃんけん</span>' : '')+
+      '</td><td class="n" style="font-size:20px">'+p.score+'</td></tr>').join('')+
+    '</tbody></table>';
+}
+
+/* ---------- 景品の受け渡し ---------- */
+function handout(){
+  const map = new Map();
+  const add = (i, p) => { if(!map.has(i)) map.set(i, []); map.get(i).push(p); };
+  const s2 = (S.t2 && allIn('g2')) ? standings(S.t2, LABELS2, 'g2') : null;
+  const s3 = (S.t3 && allIn('g3')) ? standings(S.t3, LABELS3, 'g3') : null;
+  const gw = allIn('g3') ? growthWinners() : null;
+  const P = {}; PRIZES.forEach(p => P[p.code] = p);
+  if(s2){ s2[0].members.forEach(i => add(i, P.g2win)); s2[s2.length-1].members.forEach(i => add(i, P.g2last)); }
+  if(s3){ s3[0].members.forEach(i => add(i, P.g3win)); s3[s3.length-1].members.forEach(i => add(i, P.g3last)); }
+  if(gw && gw.up.length >= 1) add(gw.up[0].i, P.gr1);
+  if(gw && gw.up.length >= 2) add(gw.up[1].i, P.gr2);
+  const rows = [...map.entries()].sort((a,b)=>a[0]-b[0]);
+  const spare = [];
+  if(s2){
+    if(s2[0].n<4) spare.push(P.g2win.item+' ×'+(4-s2[0].n));
+    if(s2[s2.length-1].n<4) spare.push(P.g2last.item+' ×'+(4-s2[s2.length-1].n));
+  }
+  if(s3){
+    if(s3[0].n<4) spare.push(P.g3win.item+' ×'+(4-s3[0].n));
+    if(s3[s3.length-1].n<4) spare.push(P.g3last.item+' ×'+(4-s3[s3.length-1].n));
+  }
+  return {rows, spare};
+}
+function handoutProgress(){
+  const rows = handout().rows;
+  let tot=0, done=0;
+  rows.forEach(r => r[1].forEach(p => { tot++; if(S.given[p.code+':'+r[0]]) done++; }));
+  return tot ? ('渡した '+done+' / '+tot) : '—';
+}
+
+/* ============================================================
+   画面
+   ============================================================ */
+function render(){
+  drawTop();
+  const F = {setup:viewSetup, g1:viewG1, g2:viewG2, g3:viewG3, fin:viewFin}[S.step];
+  el('app').innerHTML = F();
+  const scoreStep = (S.step==='g1' || S.step==='g2' || S.step==='g3');
+  el('pad').classList.toggle('hidden', !scoreStep);
+  document.documentElement.style.setProperty('--padh', scoreStep ? '280px' : '0px');
+  if(scoreStep) drawPad();
+  drawStatus();
+  bind();
+}
+
+function viewSetup(){
+  return (isStandalone()
+      ? '<div class="notice good"><b>✓ ホーム画面のアイコンで開いています。</b>当日も必ずここから開いてください。</div>'
+      : '<div class="notice err"><b>⚠ ブラウザのタブで開いています。</b>iPhone ではタブとホーム画面アイコンで保存領域が分かれることがあり、'+
+        '前日に入れた名前が当日消える事故になります。<br>共有ボタン →「ホーム画面に追加」→ <b>以後は必ずそのアイコンから開いてください</b>。</div>')
+  + '<div class="card"><h2>参加者</h2>'
+  + '<p class="cap">番号 <b>01〜14</b> をマスキングテープで服に貼り、ラウンドワンの端末の名前もこの番号に変えます。'
+  + '<b>呼び名は表示専用</b>で、集計は全部番号でやります（会場のモニターは番号表示なので、写真との照合は番号でしかできません）。'
+  + '来られなくなった人は「欠席」を押して外してください。</p>'
+  + '<div class="rows">' + Array.from({length:N},(_,i)=>
+      '<div class="row'+(S.present[i]?'':' off')+'">'+
+      '<span class="no">'+pad2(i)+'</span>'+
+      (S.present[i]
+        ? '<input type="text" data-name="'+i+'" value="'+esc(S.names[i])+'" placeholder="呼び名" maxlength="8" enterkeyhint="next">'
+        : '<span class="nm ph">欠席</span>')+
+      '<button class="tog" data-toggle="'+i+'">'+(S.present[i]?'欠席':'戻す')+'</button></div>').join('')
+  + '</div>'
+  + '<p class="cap" style="margin-top:12px">現在 <b>'+presentIdx().length+'人</b>。人数が変わってもチーム分けは自動で調整されます。</p>'
+  + '<button class="btn" data-go="g1">1ゲーム目へ</button></div>'
+  + '<div class="card plain"><h2>開始時に伝えること</h2>'
+  + '<table><tbody>'
+  + '<tr><td style="width:32px"><b>1</b></td><td>チームの勝ち負けは<b>合計点ではなく平均点</b></td></tr>'
+  + '<tr><td><b>2</b></td><td>ガードレールは使わない</td></tr>'
+  + '<tr><td><b>3</b></td><td>自分の番が来たらすぐ立つ</td></tr>'
+  + '<tr><td><b>4</b></td><td>2ゲーム目と3ゲーム目は<b>1位チームと最下位チームに景品</b></td></tr>'
+  + '</tbody></table>'
+  + '<div class="notice err" style="margin-top:14px"><b>伸び賞のことはここで言わない。</b>'
+  + '2ゲーム目の表彰のあとに初めて発表します。先に言うと「2ゲーム目でわざと手を抜いて最下位賞と伸び賞を両取り」が成立します。</div>'
+  + '<div class="notice info"><b>初心者へ30秒：</b>軽いボールを選ぶ（8〜10ポンド目安・指が窮屈でないもの）／'
+  + '助走なしでOK（ファウルラインの手前から振り子で投げる）／狙うのはピンではなく手前の三角マーク（スパット）。</div>'
+  + '</div>';
+}
+
+function viewG1(){
+  const done = allIn('g1');
+  let h = '<div class="card"><h2>1ゲーム目の点数</h2>'
+    + '<p class="cap">モニターの写真を見ながら<b>番号順</b>に入れてください。1ゲーム目は練習・シード決めなので勝敗には数えません。</p>'
+    + scoreRows('g1')
+    + '<button class="btn" data-make="2"'+(done?'':' disabled')+'>'
+    + (done ? '2ゲーム目のチームを決める' : '全員の点数を入れてください') + '</button></div>';
+  if(done) h += '<div class="card plain"><h3>1ゲーム目の個人順位</h3>'+indivTable('g1')+'</div>';
+  if(S.t2){
+    h += '<div class="card"><h2>2ゲーム目のチーム</h2>'
+      + '<p class="cap">1ゲーム目の<b>点数</b>を見て、各チームの<b>平均点</b>が揃うように組みました（順位ではありません）。'
+      + '同じ点数なら何度押しても同じ結果が出ます。</p>'
+      + teamBlocks(S.t2, LABELS2, 'g1') + teamQuality(S.t2, 'g1', null) + swapUI('t2')
+      + '<button class="btn" data-go="g2">チームを発表して2ゲーム目へ</button></div>';
+  }
+  return h;
+}
+
+function viewG2(){
+  if(!S.t2) return '<div class="card"><h2>先に1ゲーム目を終わらせてください</h2><button class="btn" data-go="g1">1ゲーム目へ</button></div>';
+  const done = allIn('g2');
+  const st = done ? standings(S.t2, LABELS2, 'g2') : null;
+  let h = '<div class="card plain"><h3>いまのチーム</h3>'+teamBlocks(S.t2, LABELS2, 'g1')+'</div>'
+    + '<div class="card"><h2>2ゲーム目の点数</h2>'+scoreRows('g2')
+    + '<button class="btn" data-make="3"'+(done?'':' disabled')+'>'
+    + (done ? '結果を出して3ゲーム目のチームを決める' : '全員の点数を入れてください') + '</button></div>';
+  if(st){
+    h += '<div class="card"><h2>2ゲーム目の結果</h2>'+standTable(st)
+      + '<div class="verdict"><span class="lbl">1位チーム</span><span class="val">'
+      + st[0].label+' — '+st[0].members.map(m=>esc(who(m))).join(' / ')+'</span></div>'
+      + '<div class="verdict bad"><span class="lbl">最下位チーム（ドンマイ賞）</span><span class="val">'
+      + st[st.length-1].label+' — '+st[st.length-1].members.map(m=>esc(who(m))).join(' / ')+'</span></div>'
+      + '<div class="notice warn"><b>ここで初めて伸び賞を発表してください。</b>景品はまだ配らず、'
+      + '<b>口頭の発表だけ</b>にして最後にまとめて渡すと5分浮きます。</div>'
+      + '</div><div class="card plain"><h3>2ゲーム目の個人順位</h3>'+indivTable('g2')+'</div>';
+  }
+  if(S.t3){
+    h += '<div class="card"><h2>3ゲーム目のチーム</h2>'
+      + '<p class="cap"><b>1ゲーム目＋2ゲーム目</b>の点数で組み直しました（2ゲーム分のほうが実力の推定が安定するため。'
+      + '運営メモ §5 とは意図的に違います）。<b>2ゲーム目と同じ人とは組みません。</b></p>'
+      + teamBlocks(S.t3, LABELS3, null) + teamQuality(S.t3, 'g2', pairsIn(S.t2)) + swapUI('t3')
+      + '<button class="btn" data-go="g3">チームを発表して3ゲーム目へ</button></div>';
+  }
+  return h;
+}
+
+function viewG3(){
+  if(!S.t3) return '<div class="card"><h2>先に2ゲーム目を終わらせてください</h2><button class="btn" data-go="g2">2ゲーム目へ</button></div>';
+  const done = allIn('g3');
+  const st = done ? standings(S.t3, LABELS3, 'g3') : null;
+  let h = '<div class="card plain"><h3>いまのチーム</h3>'+teamBlocks(S.t3, LABELS3, null)+'</div>'
+    + '<div class="card"><h2>3ゲーム目の点数</h2>'+scoreRows('g3')
+    + '<button class="btn" data-go="fin"'+(done?'':' disabled')+'>'
+    + (done ? '表彰へ' : '全員の点数を入れてください') + '</button></div>';
+  if(st) h += '<div class="card"><h2>3ゲーム目の結果</h2>'+standTable(st)+'</div>'
+    + '<div class="card plain"><h3>3ゲーム目の個人順位</h3>'+indivTable('g3')+'</div>';
+  return h;
+}
+
+function viewFin(){
+  const s2 = (S.t2 && allIn('g2')) ? standings(S.t2, LABELS2, 'g2') : null;
+  const s3 = (S.t3 && allIn('g3')) ? standings(S.t3, LABELS3, 'g3') : null;
+  let h = '';
+
+  if(s2 || s3){
+    h += '<div class="card"><h2>団体戦の結果</h2>';
+    if(s2) h += '<h3 style="margin-top:4px">2ゲーム目</h3>'
+      + '<div class="verdict"><span class="lbl">1位</span><span class="val">'+s2[0].label+' — '+s2[0].members.map(m=>esc(who(m))).join(' / ')+'</span></div>'
+      + '<div class="verdict bad"><span class="lbl">最下位</span><span class="val">'+s2[s2.length-1].label+' — '+s2[s2.length-1].members.map(m=>esc(who(m))).join(' / ')+'</span></div>';
+    if(s3) h += '<h3 style="margin-top:18px">3ゲーム目</h3>'
+      + '<div class="verdict"><span class="lbl">1位</span><span class="val">'+s3[0].label+' — '+s3[0].members.map(m=>esc(who(m))).join(' / ')+'</span></div>'
+      + '<div class="verdict bad"><span class="lbl">最下位</span><span class="val">'+s3[s3.length-1].label+' — '+s3[s3.length-1].members.map(m=>esc(who(m))).join(' / ')+'</span></div>';
+    h += '</div>';
+  }
+
+  /* 伸び賞：2ゲーム目の表彰が終わるまでは畳んでおく */
+  if(allIn('g3')){
+    if(!S.growthOpen){
+      h += '<div class="card"><h2>伸び賞</h2>'
+        + '<div class="notice warn">2ゲーム目の表彰が終わるまでは開かないでください。'
+        + '画面を覗かれると「2ゲーム目で手を抜いて両取り」の動機が生まれます。</div>'
+        + '<button class="btn warnbtn" data-open="growth">2ゲーム目の表彰は終わった — 伸び賞を開く</button></div>';
+    }else{
+      const gw = growthWinners();
+      h += '<div class="card"><h2>伸び賞（2ゲーム目 → 3ゲーム目）</h2>';
+      if(gw.up.length){
+        h += '<div class="verdict"><span class="lbl">1位 — QUOカード ¥1,800</span><span class="val">'
+          + esc(who(gw.up[0].i))+'　＋'+gw.up[0].rate.toFixed(1)+'%（'+gw.up[0].g2+' → '+gw.up[0].g3+'点）</span></div>';
+        if(gw.up[1]) h += '<div class="verdict"><span class="lbl">2位 — QUOカード ¥1,200</span><span class="val">'
+          + esc(who(gw.up[1].i))+'　＋'+gw.up[1].rate.toFixed(1)+'%（'+gw.up[1].g2+' → '+gw.up[1].g3+'点）</span></div>';
+        if(gw.up[0].g2 < 50) h += '<div class="notice warn">1位の方は2ゲーム目が<b>'+gw.up[0].g2+'点</b>と低いため、'
+          + '率が大きく出ています。下の<b>点差</b>の列も見て判断してください（運営メモ §6）。</div>';
+        if(gw.up.length === 1) h += '<div class="notice warn">伸びた人が1人しかいません。'
+          + '2位は下の表で<b>点差が一番小さい人</b>（減りが最小の人）に渡してください。</div>';
+      }else{
+        h += '<div class="notice warn">点数が伸びた人がいませんでした。'
+          + '下の表で<b>点差が一番小さい人</b>（減りが最小の人）に渡してください。</div>';
+      }
+      h += '<h3 style="margin-top:18px">全員の推移</h3>'
+        + '<table><thead><tr><th>参加者</th><th class="n">2G</th><th class="n">3G</th><th class="n">率</th><th class="n">点差</th></tr></thead><tbody>'
+        + gw.all.map((r,i)=>'<tr class="'+(i<2 && r.diff>0 ? 'win':'')+'"><td>'+esc(who(r.i))+'</td>'
+          + '<td class="n">'+r.g2+'</td><td class="n">'+r.g3+'</td>'
+          + '<td class="n">'+(r.rate>=0?'+':'')+r.rate.toFixed(1)+'%</td>'
+          + '<td class="n">'+(r.diff>=0?'+':'')+r.diff+'</td></tr>').join('')
+        + '</tbody></table></div>';
+    }
+  }
+
+  /* 人ごとの受け渡しリスト */
+  const ho = handout();
+  h += '<div class="card"><h2>誰に何を渡すか</h2>';
+  if(!ho.rows.length){
+    h += '<p class="cap">3ゲーム目まで点数が入ると、ここに「誰に何を渡すか」が出ます。</p>';
+  }else{
+    h += '<p class="cap">タップでチェック。<b>2つ以上もらう人</b>がいるので、人ごとにまとめてあります。</p><div class="hand">'
+      + ho.rows.map(r=>{
+          const i = r[0], ps = r[1];
+          const allDone = ps.every(p => S.given[p.code+':'+i]);
+          return '<div class="give'+(allDone?' done':'')+'" data-give="'+i+'">'
+            + '<span class="ck">✓</span><span><span class="who">'+esc(who(i))+'</span><br>'
+            + ps.map(p=>'<span class="what">'+esc(p.when)+' → <em>'+esc(p.item)+'</em></span>').join('<br>')
+            + '</span></div>';
+        }).join('')
+      + '</div>';
+    if(ho.spare.length) h += '<div class="notice info"><b>余る景品：</b>'+ho.spare.map(esc).join(' ／ ')
+      + '。3人チームが受賞したぶんです。持ち帰って次回に回してください。</div>';
+    h += '<div class="notice warn">トイレットペーパーは二次会や電車移動が長いと本当に邪魔になります。渡す前に一度判断してください。</div>';
+  }
+  h += '</div>';
+
+  h += '<div class="card plain"><h3>やり直す</h3>'
+    + '<button class="btn sec small" data-reset="1">すべての点数とチーム分けを消す（名前と出欠は残ります）</button></div>';
+  return h;
+}
+
+/* ---------- 状態バー ---------- */
+function isStandalone(){
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+}
+function drawStatus(){
+  let sv;
+  if(lastSaved === 'ERR') sv = '<span class="pill warn">⚠ 保存できていません</span>';
+  else if(lastSaved)      sv = '<span class="pill good">保存済み '+lastSaved.toTimeString().slice(0,8)+'</span>';
+  else                    sv = '<span class="pill">未保存</span>';
+  const st = isStandalone()
+    ? '<span class="pill good">ホーム画面アイコン</span>'
+    : '<span class="pill warn">⚠ ブラウザのタブ</span>';
+  el('status').innerHTML = '<div class="line">'+sv+st+'</div>'
+    + '<details><summary>データの書き出し・読み込み（バックアップ）</summary>'
+    + '<p class="cap">集計の区切りで<b>書き出して自分宛に LINE</b> しておけば、端末が死んでも復元できます。</p>'
+    + '<button class="btn sec small" data-export="1">書き出してコピー</button>'
+    + '<textarea id="io" placeholder="ここに貼り付けて「読み込む」"></textarea>'
+    + '<button class="btn sec small" data-import="1">読み込む（いまのデータは消えます）</button></details>';
+}
+
+/* ---------- テンキー ---------- */
+function curField(){ return S.step; }
+function nextCell(from){
+  const p = presentIdx();
+  if(!p.length) return -1;
+  const at = p.indexOf(from);
+  return p[(at+1) % p.length];
+}
+function firstEmpty(field){
+  const p = presentIdx();
+  for(const i of p) if(num(S[field][i]) === null) return i;
+  return p.length ? p[0] : -1;
+}
+function drawPad(){
+  const f = curField();
+  el('padwho').textContent = active >= 0 ? who(active) : '番号を選んでください';
+  const v = active >= 0 ? S[f][active] : '';
+  el('padval').textContent = v === '' ? '—' : v;
+}
+function setActive(i){
+  active = i; fresh = true;
+  syncRows(); drawPad();
+  const r = document.querySelector('[data-cell="'+i+'"]');
+  if(r) r.scrollIntoView({block:'center', behavior:'smooth'});
+}
+function syncRows(){
+  const f = curField();
+  document.querySelectorAll('[data-cell]').forEach(r=>{
+    const i = +r.dataset.cell;
+    r.classList.toggle('active', i === active);
+    const sc = r.querySelector('.sc');
+    const v = S[f][i];
+    sc.textContent = v === '' ? '—' : v;
+    sc.classList.toggle('empty', v === '');
+  });
+  drawTop();
+}
+function press(k){
+  const f = curField();
+  if(active < 0 || !S.present[active]) return;
+  let v = S[f][active];
+  if(k === 'next'){ setActive(nextCell(active)); return; }
+  if(k === 'bs'){ v = v.slice(0,-1); fresh = false; }
+  else if(k === 'cl'){ v = ''; fresh = false; }
+  else {
+    if(fresh){ v = ''; fresh = false; }
+    if(v.length >= 3) return;
+    const nv = v + k;
+    if(parseInt(nv,10) > 300) return;
+    v = String(parseInt(nv,10));
+  }
+  const wasDone = allIn(f);
+  S[f][active] = v;
+  save();
+  if(wasDone !== allIn(f)){ render(); return; }   /* 完了⇔未完了が切り替わったときだけ全描画 */
+  syncRows(); drawPad();
+  if(k !== 'bs' && k !== 'cl' && v.length === 3) setActive(nextCell(active));
+}
+
+/* ---------- 書き出し・読み込み ---------- */
+function doExport(){
+  const txt = JSON.stringify(S);
+  const ta = el('io'); if(ta) ta.value = txt;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(
+      ()=> alert('コピーしました。自分宛に LINE などで送っておいてください。'),
+      ()=> alert('コピーできませんでした。下の欄のテキストを手で選んでコピーしてください。')
+    );
+  }else{
+    alert('下の欄のテキストを手で選んでコピーしてください。');
+  }
+}
+function doImport(){
+  const ta = el('io');
+  if(!ta || !ta.value.trim()){ alert('先に書き出したテキストを欄に貼り付けてください。'); return; }
+  let o;
+  try{ o = JSON.parse(ta.value); }
+  catch(e){ alert('読み込めませんでした。テキストが途中で切れていないか確認してください。'); return; }
+  if(!o || !Array.isArray(o.g1)){ alert('このアプリのデータではないようです。'); return; }
+  if(!confirm('いまのデータを消して読み込みます。よろしいですか？')) return;
+  S = Object.assign(blank(), o);
+  active = -1; save(); render();
+}
+
+/* ---------- イベント ---------- */
+function goStep(k){
+  S.step = k; save();
+  if(k==='g1' || k==='g2' || k==='g3') active = firstEmpty(k);
+  render(); window.scrollTo(0,0);
+}
+function bind(){
+  el('app').querySelectorAll('[data-go]').forEach(b=>{ b.onclick = ()=> goStep(b.dataset.go); });
+  document.querySelectorAll('[data-toggle]').forEach(b=>{
+    b.onclick = ()=>{
+      const i = +b.dataset.toggle;
+      S.present[i] = !S.present[i];
+      if(!S.present[i]){ S.g1[i]=S.g2[i]=S.g3[i]=''; }
+      save(); render();
+    };
+  });
+  document.querySelectorAll('[data-name]').forEach(inp=>{
+    inp.oninput = ()=>{ S.names[+inp.dataset.name] = inp.value; save(); };
+  });
+  document.querySelectorAll('[data-cell]').forEach(r=>{
+    r.onclick = ()=> setActive(+r.dataset.cell);
+  });
+  const mk = document.querySelector('[data-make]');
+  if(mk) mk.onclick = ()=>{
+    if(mk.dataset.make === '2'){
+      const list = roster('g1'); if(!list) return;
+      S.t2 = assign(ranked(list), new Set(), 0x5A).teams;
+    }else{
+      const l2 = roster('g2'); if(!l2) return;
+      const combo = l2.map(p => ({i:p.i, score: p.score + (num(S.g1[p.i]) || 0)}));   /* ADR-0001 */
+      const res = assign(ranked(combo), pairsIn(S.t2), 0xA5);
+      S.t3 = res.teams;
+      S.t3violations = res.violations;
+    }
+    save(); render(); window.scrollTo(0,0);
+  };
+  document.querySelectorAll('[data-swap]').forEach(b=>{
+    b.onclick = ()=>{
+      const key = b.dataset.swap, a = +el('sw1').value, c = +el('sw2').value;
+      if(a === c) return;
+      const t = S[key]; let pa=null, pb=null;
+      t.forEach((g,gi)=> g.forEach((m,mi)=>{ if(m===a) pa=[gi,mi]; if(m===c) pb=[gi,mi]; }));
+      if(!pa || !pb || pa[0] === pb[0]) return;
+      t[pa[0]][pa[1]] = c; t[pb[0]][pb[1]] = a;
+      save(); render();
+    };
+  });
+  const og = document.querySelector('[data-open="growth"]');
+  if(og) og.onclick = ()=>{ S.growthOpen = true; save(); render(); };
+  document.querySelectorAll('[data-give]').forEach(g=>{
+    g.onclick = ()=>{
+      const i = +g.dataset.give;
+      const row = handout().rows.find(r => r[0] === i);
+      if(!row) return;
+      const allDone = row[1].every(p => S.given[p.code+':'+i]);
+      row[1].forEach(p => { S.given[p.code+':'+i] = !allDone; });
+      save(); render();
+    };
+  });
+  const rs = document.querySelector('[data-reset]');
+  if(rs) rs.onclick = ()=>{
+    if(!confirm('すべての点数とチーム分けを消します（名前と出欠は残ります）。よろしいですか？')) return;
+    const names = S.names.slice(), present = S.present.slice();
+    S = blank(); S.names = names; S.present = present;
+    active = -1; save(); render(); window.scrollTo(0,0);
+  };
+  const ex = document.querySelector('[data-export]'); if(ex) ex.onclick = doExport;
+  const im = document.querySelector('[data-import]'); if(im) im.onclick = doImport;
+}
+
+el('pad').querySelectorAll('[data-k]').forEach(b=>{
+  b.addEventListener('click', ()=> press(b.dataset.k));
+});
+el('steps').addEventListener('click', e=>{
+  const b = e.target.closest('[data-go]');
+  if(b) goStep(b.dataset.go);
+});
+
+/* ---------- 起動 ---------- */
+load();
+if(S.step==='g1' || S.step==='g2' || S.step==='g3') active = firstEmpty(S.step);
+render();
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=> navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
