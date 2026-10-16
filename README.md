@@ -6,7 +6,7 @@
 - 用語の正本 → [CONTEXT.md](./CONTEXT.md)
 - 設計判断の記録 → [docs/adr/](./docs/adr/)
 - UI のデザイン契約 → [DESIGN.md](./DESIGN.md)（kimuz-web v1。`accent` のみボウリングの赤に差し替え）
-- 設計メモ・運営メモの正本は Obsidian 側（`obsidian/input/アプリ設計/bowling-tally.md`）
+- 設計メモ・運営メモの正本は Obsidian 側（`02_アプリ/アプリ設計/bowling-tally.md`）
 
 ## 使い方
 
